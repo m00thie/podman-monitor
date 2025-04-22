@@ -1,0 +1,6 @@
+.aider*
+.env
+*.iml
+.idea
+.env
+poetry.lock

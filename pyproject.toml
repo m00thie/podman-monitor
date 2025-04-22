@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "podman-monitor"
+version = "0.1.0"
+description = "A simple web application to monitor Podman containers"
+authors = ["Your Name <your.email@example.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+flask = "^2.3.3"
+python-dotenv = "^1.0.0"
+gunicorn = "^21.2.0"
+podman = "^4.9.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.0"
+black = "^23.7.0"
+flake8 = "^6.1.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

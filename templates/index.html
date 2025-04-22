@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Podman Monitor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .greeting {
+            text-align: center;
+            font-size: 1.2em;
+            margin-bottom: 30px;
+        }
+        .container-list {
+            margin-top: 20px;
+        }
+        .container-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            background-color: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .container-info {
+            flex: 1;
+        }
+        .container-name {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .container-image {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .container-runtime {
+            flex: 0 0 150px;
+            text-align: right;
+            padding-right: 20px;
+        }
+        .health-indicator {
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            margin-left: 10px;
+        }
+        .healthy {
+            background-color: #4CAF50;
+        }
+        .unhealthy {
+            background-color: #F44336;
+        }
+        .no-containers {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        .error-message {
+            color: #F44336;
+            text-align: center;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Podman Monitor</h1>
+        <div class="greeting">
+            <p>Welcome to Podman Monitor! This application helps you monitor your Podman containers.</p>
+        </div>
+        
+        <div id="container-info">
+            <h2>Running Containers</h2>
+            <div id="container-list" class="container-list">
+                <p>Loading container information...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Fetch container information when the page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            fetchContainerInfo();
+            
+            // Refresh every 30 seconds
+            setInterval(fetchContainerInfo, 30000);
+        });
+
+        // Calculate how long the container has been running
+        function getRunningTime(createdTime) {
+            // Parse ISO 8601 timestamp string
+            const created = new Date(createdTime);
+            const now = new Date();
+            const diffMs = now - created;
+            
+            const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+            
+            if (days > 0) {
+                return `${days}d ${hours}h ${minutes}m`;
+            } else if (hours > 0) {
+                return `${hours}h ${minutes}m`;
+            } else if (minutes === 0) {
+                return "less than a minute"
+            } else {
+                return `${minutes}m`;
+            }
+        }
+
+        // Parse image name and tag
+        function parseImageInfo(imageString) {
+            const parts = imageString.split(':');
+            const name = parts[0];
+            const tag = parts.length > 1 ? parts[1] : 'latest';
+            return { name, tag };
+        }
+
+        // Determine if container is healthy based on status
+        function isHealthy(status) {
+            return status.toLowerCase().includes('running')
+        }
+
+        function fetchContainerInfo() {
+            fetch('/api/containers')
+                .then(response => response.json())
+                .then(data => {
+                    const containerList = document.getElementById('container-list');
+                    
+                    if (data.error) {
+                        containerList.innerHTML = `<div class="error-message">Error: ${data.error}</div>`;
+                        return;
+                    }
+                    
+                    // Filter only running containers
+                    const runningContainers = Array.isArray(data) ? 
+                        data.filter(container => container.State === 'running') : [];
+                    
+                    if (runningContainers.length === 0) {
+                        containerList.innerHTML = '<div class="no-containers">No running containers found.</div>';
+                        return;
+                    }
+                    
+                    let html = '';
+                    runningContainers.forEach(container => {
+                        const name = container.Names[0].replace(/^\//, '') || 'Unnamed';
+                        const imageInfo = parseImageInfo(container.Image);
+                        const runningTime = getRunningTime(container.Created);
+                        const healthy = isHealthy(container.Status);
+                        
+                        html += `
+                            <div class="container-item">
+                                <div class="container-info">
+                                    <div class="container-name">${name}</div>
+                                    <div class="container-image">${imageInfo.name}:${imageInfo.tag}</div>
+                                </div>
+                                <div class="container-runtime">
+                                    Running for: ${runningTime}
+                                </div>
+                                <div class="health-indicator ${healthy ? 'healthy' : 'unhealthy'}" 
+                                     title="${container.Status}">
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    containerList.innerHTML = html;
+                })
+                .catch(error => {
+                    document.getElementById('container-list').innerHTML = 
+                        `<div class="error-message">Error fetching container information: ${error.message}</div>`;
+                });
+        }
+    </script>
+</body>
+</html>
