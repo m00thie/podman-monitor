@@ -308,6 +308,64 @@
             color: var(--healthy);
             background-color: rgba(76, 175, 80, 0.1);
         }
+
+        /* Action dropdown styles */
+        .action-dropdown {
+            position: relative;
+            display: inline-block;
+            margin-left: 15px;
+        }
+
+        .action-button {
+            background-color: var(--accent-primary);
+            color: white;
+            padding: 8px 15px;
+            border-radius: var(--border-radius-sm);
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            transition: background-color 0.2s, transform 0.2s;
+        }
+
+        .action-button:hover {
+            background-color: var(--accent-secondary);
+            transform: translateY(-2px);
+        }
+
+        .action-dropdown-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            background-color: var(--bg-card);
+            min-width: 160px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+            z-index: 1;
+            border-radius: var(--border-radius-sm);
+            overflow: hidden;
+            margin-top: 5px;
+        }
+
+        .action-dropdown-content a {
+            color: var(--text-primary);
+            padding: 12px 16px;
+            text-decoration: none;
+            display: block;
+            transition: background-color 0.2s;
+            cursor: pointer;
+        }
+
+        .action-dropdown-content a:hover {
+            background-color: var(--bg-card-hover);
+        }
+
+        .action-dropdown.show .action-dropdown-content {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -322,8 +380,38 @@
                     <h1>{{ container.Name }}</h1>
                     <div>{{ container.Image }}</div>
                 </div>
-                <div class="container-status {% if container.Status == 'running' %}status-running{% elif container.Status == 'stopped' %}status-stopped{% else %}status-other{% endif %}">
-                    {{ container.Status }}
+                <div style="display: flex; align-items: center;">
+                    <div class="container-status {% if container.Status == 'running' %}status-running{% elif container.Status == 'stopped' %}status-stopped{% else %}status-other{% endif %}">
+                        {{ container.Status }}
+                    </div>
+                    <div class="action-dropdown">
+                        <button class="action-button" id="action-dropdown-btn">
+                            Actions
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </button>
+                        <div class="action-dropdown-content" id="action-dropdown-content">
+                            {% if container.Status != 'running' %}
+                            <a href="#" class="container-action" data-action="start">Start</a>
+                            {% endif %}
+
+                            {% if container.Status == 'running' %}
+                            <a href="#" class="container-action" data-action="restart">Restart</a>
+                            <a href="#" class="container-action" data-action="stop">Stop</a>
+                            <a href="#" class="container-action" data-action="kill">Kill</a>
+                            <a href="#" class="container-action" data-action="pause">Pause</a>
+                            {% endif %}
+
+                            {% if container.Status == 'paused' %}
+                            <a href="#" class="container-action" data-action="unpause">Unpause</a>
+                            {% endif %}
+
+                            {% if container.Status != 'running' %}
+                            <a href="#" class="container-action" data-action="delete">Delete</a>
+                            {% endif %}
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -417,6 +505,12 @@
                 const containerId = "{{ container.Id }}";
                 let isPaused = false;
                 let lastLogTimestamp = new Date().toISOString();
+                let containerStatus = "{{ container.Status }}";
+
+                // Auto-pause logs if container is not running
+                if (containerStatus !== 'running') {
+                    isPaused = true;
+                }
 
                 // Function to fetch and append new logs
                 function fetchLogs() {
@@ -448,10 +542,55 @@
                         });
                 }
 
+                // Function to perform container actions
+                function performContainerAction(action) {
+                    const url = `/api/container/${containerId}/${action}`;
+
+                    // Show loading state
+                    const actionButton = document.getElementById('action-dropdown-btn');
+                    const originalText = actionButton.innerHTML;
+                    actionButton.innerHTML = 'Processing...';
+                    actionButton.disabled = true;
+
+                    fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            alert(`Error: ${data.error}`);
+                        } else {
+                            // Refresh the page to show updated container state
+                            window.location.reload();
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error performing action:', error);
+                        alert(`Error performing ${action} action. Please try again.`);
+
+                        // Restore button state
+                        actionButton.innerHTML = originalText;
+                        actionButton.disabled = false;
+                    });
+                }
+
                 // Set up event listeners
                 document.addEventListener('DOMContentLoaded', function() {
                     const pauseButton = document.getElementById('pause-logs');
                     const clearButton = document.getElementById('clear-logs');
+                    const actionDropdownBtn = document.getElementById('action-dropdown-btn');
+                    const actionDropdownContent = document.getElementById('action-dropdown-content');
+
+                    // Update logs status based on initial state
+                    if (isPaused) {
+                        pauseButton.textContent = 'Resume';
+                        pauseButton.classList.add('paused');
+                        document.getElementById('logs-status').textContent = 
+                            containerStatus === 'running' ? 'Logs paused' : 'Container not running - logs paused';
+                    }
 
                     pauseButton.addEventListener('click', function() {
                         isPaused = !isPaused;
@@ -463,6 +602,35 @@
 
                     clearButton.addEventListener('click', function() {
                         document.getElementById('logs-textarea').value = '';
+                    });
+
+                    // Toggle dropdown when clicking the action button
+                    actionDropdownBtn.addEventListener('click', function() {
+                        actionDropdownContent.parentElement.classList.toggle('show');
+                    });
+
+                    // Close the dropdown when clicking outside
+                    window.addEventListener('click', function(event) {
+                        if (!event.target.matches('#action-dropdown-btn') && 
+                            !event.target.closest('#action-dropdown-btn')) {
+                            const dropdowns = document.getElementsByClassName('action-dropdown');
+                            for (let i = 0; i < dropdowns.length; i++) {
+                                if (dropdowns[i].classList.contains('show')) {
+                                    dropdowns[i].classList.remove('show');
+                                }
+                            }
+                        }
+                    });
+
+                    // Add event listeners for container actions
+                    document.querySelectorAll('.container-action').forEach(action => {
+                        action.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            const actionType = this.getAttribute('data-action');
+                            if (confirm(`Are you sure you want to ${actionType} this container?`)) {
+                                performContainerAction(actionType);
+                            }
+                        });
                     });
 
                     // Start fetching logs every 2 seconds
