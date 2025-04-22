@@ -16,6 +16,8 @@
             --healthy: #4CAF50;
             --unhealthy: #F44336;
             --border-radius: 12px;
+            --dropdown-bg: #2a2a2a;
+            --dropdown-hover: #3a3a3a;
         }
 
         * {
@@ -185,6 +187,99 @@
             border-radius: var(--border-radius);
             margin-top: 20px;
         }
+
+        /* Filter controls styles */
+        .filter-controls {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .filter-group {
+            display: flex;
+            align-items: center;
+            margin-right: 20px;
+        }
+
+        .filter-label {
+            margin-right: 10px;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .filter-select {
+            background-color: var(--dropdown-bg);
+            color: var(--text-primary);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 14px;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .filter-select:hover {
+            background-color: var(--dropdown-hover);
+        }
+
+        .filter-select option {
+            background-color: var(--dropdown-bg);
+            color: var(--text-primary);
+        }
+
+        .spacer {
+            flex-grow: 1;
+        }
+
+        .actions-menu {
+            position: relative;
+            display: inline-block;
+        }
+
+        .actions-button {
+            background-color: var(--dropdown-bg);
+            color: var(--text-primary);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 14px;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .actions-button:hover {
+            background-color: var(--dropdown-hover);
+        }
+
+        .actions-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            background-color: var(--dropdown-bg);
+            min-width: 160px;
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.5);
+            z-index: 1;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .actions-content.show {
+            display: block;
+        }
+
+        .actions-content a {
+            color: var(--text-primary);
+            padding: 12px 16px;
+            text-decoration: none;
+            display: block;
+            font-size: 14px;
+        }
+
+        .actions-content a:hover {
+            background-color: var(--dropdown-hover);
+        }
     </style>
 </head>
 <body>
@@ -196,6 +291,30 @@
 
         <div id="container-info">
             <h2>All Containers</h2>
+            <div class="filter-controls">
+                <div class="filter-group">
+                    <span class="filter-label">Filter:</span>
+                    <select id="container-filter" class="filter-select">
+                        <option value="all" selected>All</option>
+                        <option value="healthy">Healthy</option>
+                        <option value="unhealthy">Unhealthy</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <span class="filter-label">Sort:</span>
+                    <select id="container-sort" class="filter-select">
+                        <option value="healthy-first" selected>Healthy first</option>
+                        <option value="unhealthy-first">Unhealthy first</option>
+                    </select>
+                </div>
+                <div class="spacer"></div>
+                <div class="actions-menu">
+                    <button id="actions-button" class="actions-button">⋮</button>
+                    <div id="actions-content" class="actions-content">
+                        <a href="#" id="prune-containers">Prune containers</a>
+                    </div>
+                </div>
+            </div>
             <div id="container-list" class="container-list">
                 <p>Loading container information...</p>
             </div>
@@ -203,12 +322,47 @@
     </div>
 
     <script>
+        // Global variables to store filter and sort preferences
+        let currentFilter = 'all';
+        let currentSort = 'healthy-first';
+        let allContainersData = [];
+
         // Fetch container information when the page loads
         document.addEventListener('DOMContentLoaded', function() {
             fetchContainerInfo();
 
             // Refresh every 30 seconds
             setInterval(fetchContainerInfo, 30000);
+
+            // Add event listeners for filter and sort
+            document.getElementById('container-filter').addEventListener('change', function() {
+                currentFilter = this.value;
+                fetchContainerInfo();
+            });
+
+            document.getElementById('container-sort').addEventListener('change', function() {
+                currentSort = this.value;
+                fetchContainerInfo();
+            });
+
+            // Toggle actions menu
+            document.getElementById('actions-button').addEventListener('click', function(e) {
+                e.stopPropagation();
+                document.getElementById('actions-content').classList.toggle('show');
+            });
+
+            // Close actions menu when clicking elsewhere
+            document.addEventListener('click', function() {
+                document.getElementById('actions-content').classList.remove('show');
+            });
+
+            // Prune containers action
+            document.getElementById('prune-containers').addEventListener('click', function(e) {
+                e.preventDefault();
+                if (confirm('Are you sure you want to prune all stopped containers?')) {
+                    pruneContainers();
+                }
+            });
         });
 
         // Calculate how long the container has been running
@@ -246,27 +400,51 @@
             return status.toLowerCase().includes('running')
         }
 
-        function fetchContainerInfo() {
-            fetch('/api/containers')
+
+        // Prune all stopped containers
+        function pruneContainers() {
+            fetch('/api/containers/prune', { method: 'POST' })
                 .then(response => response.json())
                 .then(data => {
+                    if (data.error) {
+                        alert(`Error: ${data.error}`);
+                    } else {
+                        alert(`Successfully pruned ${data.prunedCount} containers.`);
+                        fetchContainerInfo(); // Refresh the container list
+                    }
+                })
+                .catch(error => {
+                    alert(`Error pruning containers: ${error.message}`);
+                });
+        }
+
+        function fetchContainerInfo() {
+            // Use the current filter and sort settings
+            const url = `/api/containers?filter=${currentFilter}&sort=${currentSort}`;
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        document.getElementById('container-list').innerHTML = 
+                            `<div class="error-message">Error: ${data.error}</div>`;
+                        return;
+                    }
+
+                    // Store all containers in the global variable
+                    allContainersData = Array.isArray(data) ? data : [];
+
+                    // Render containers (no need to filter or sort as the API already did that)
                     const containerList = document.getElementById('container-list');
 
-                    if (data.error) {
-                        containerList.innerHTML = `<div class="error-message">Error: ${data.error}</div>`;
+                    if (allContainersData.length === 0) {
+                        containerList.innerHTML = `<div class="no-containers">No ${currentFilter !== 'all' ? currentFilter + ' ' : ''}containers found.</div>`;
                         return;
                     }
 
-                    // Get all containers
-                    const allContainers = Array.isArray(data) ? data : [];
-
-                    if (allContainers.length === 0) {
-                        containerList.innerHTML = '<div class="no-containers">No containers found.</div>';
-                        return;
-                    }
-
+                    // Render containers
                     let html = '';
-                    allContainers.forEach(container => {
+                    allContainersData.forEach(container => {
                         const name = container.Names[0].replace(/^\//, '') || 'Unnamed';
                         const imageInfo = parseImageInfo(container.Image);
                         const runningTime = getRunningTime(container.Created);

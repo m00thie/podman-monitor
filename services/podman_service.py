@@ -129,3 +129,152 @@ class PodmanService:
             error_msg = f"Error getting container logs: {str(e)}"
             logger.error(error_msg, e)
             return f"Error: {error_msg}"
+
+    def prune_containers(self) -> Dict[str, Any]:
+        """Prune all stopped containers"""
+        try:
+            # Create a Podman client
+            podman_client = self._create_client()
+
+            # Prune containers
+            prune = podman_client.containers.prune()
+
+            logger.info(f"Pruned containers:\n {prune['ContainersDeleted']}")
+            return {"prunedCount": len(prune['ContainersDeleted'])}
+        except Exception as e:
+            error_msg = f"Error pruning containers: {str(e)}"
+            logger.error(error_msg, e)
+            return {"error": error_msg}
+
+    def start_container(self, container_id: str) -> Dict[str, Any]:
+        """Start a container"""
+        try:
+            # Create a Podman client
+            podman_client = self._create_client()
+
+            # Get container by ID
+            container = podman_client.containers.get(container_id)
+
+            # Start the container
+            container.start()
+
+            logger.info(f"Started container: {container_id}")
+            return {"success": True, "message": "Container started successfully"}
+        except Exception as e:
+            error_msg = f"Error starting container: {str(e)}"
+            logger.error(error_msg, e)
+            return {"error": error_msg}
+
+    def stop_container(self, container_id: str) -> Dict[str, Any]:
+        """Stop a container"""
+        try:
+            # Create a Podman client
+            podman_client = self._create_client()
+
+            # Get container by ID
+            container = podman_client.containers.get(container_id)
+
+            # Stop the container
+            container.stop()
+
+            logger.info(f"Stopped container: {container_id}")
+            return {"success": True, "message": "Container stopped successfully"}
+        except Exception as e:
+            error_msg = f"Error stopping container: {str(e)}"
+            logger.error(error_msg, e)
+            return {"error": error_msg}
+
+    def restart_container(self, container_id: str) -> Dict[str, Any]:
+        """Restart a container"""
+        try:
+            # Create a Podman client
+            podman_client = self._create_client()
+
+            # Get container by ID
+            container = podman_client.containers.get(container_id)
+
+            # Restart the container
+            container.restart()
+
+            logger.info(f"Restarted container: {container_id}")
+            return {"success": True, "message": "Container restarted successfully"}
+        except Exception as e:
+            error_msg = f"Error restarting container: {str(e)}"
+            logger.error(error_msg, e)
+            return {"error": error_msg}
+
+    def kill_container(self, container_id: str) -> Dict[str, Any]:
+        """Kill a container"""
+        try:
+            # Create a Podman client
+            podman_client = self._create_client()
+
+            # Get container by ID
+            container = podman_client.containers.get(container_id)
+
+            # Kill the container
+            container.kill()
+
+            logger.info(f"Killed container: {container_id}")
+            return {"success": True, "message": "Container killed successfully"}
+        except Exception as e:
+            error_msg = f"Error killing container: {str(e)}"
+            logger.error(error_msg, e)
+            return {"error": error_msg}
+
+    def delete_container(self, container_id: str) -> Dict[str, Any]:
+        """Delete a container"""
+        try:
+            # Create a Podman client
+            podman_client = self._create_client()
+
+            # Get container by ID
+            container = podman_client.containers.get(container_id)
+
+            # Remove the container
+            container.remove()
+
+            logger.info(f"Deleted container: {container_id}")
+            return {"success": True, "message": "Container deleted successfully"}
+        except Exception as e:
+            error_msg = f"Error deleting container: {str(e)}"
+            logger.error(error_msg, e)
+            return {"error": error_msg}
+
+    def pause_container(self, container_id: str) -> Dict[str, Any]:
+        """Pause a container"""
+        try:
+            # Create a Podman client
+            podman_client = self._create_client()
+
+            # Get container by ID
+            container = podman_client.containers.get(container_id)
+
+            # Pause the container
+            container.pause()
+
+            logger.info(f"Paused container: {container_id}")
+            return {"success": True, "message": "Container paused successfully"}
+        except Exception as e:
+            error_msg = f"Error pausing container: {str(e)}"
+            logger.error(error_msg, e)
+            return {"error": error_msg}
+
+    def unpause_container(self, container_id: str) -> Dict[str, Any]:
+        """Unpause a container"""
+        try:
+            # Create a Podman client
+            podman_client = self._create_client()
+
+            # Get container by ID
+            container = podman_client.containers.get(container_id)
+
+            # Unpause the container
+            container.unpause()
+
+            logger.info(f"Unpaused container: {container_id}")
+            return {"success": True, "message": "Container unpaused successfully"}
+        except Exception as e:
+            error_msg = f"Error unpausing container: {str(e)}"
+            logger.error(error_msg, e)
+            return {"error": error_msg}
