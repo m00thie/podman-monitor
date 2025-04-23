@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Details - Podman Monitor</title>
+    <!-- Highlight.js for syntax highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/languages/dockerfile.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/languages/bash.min.js"></script>
+
+    <style>
+        :root {
+            --bg-dark: #121212;
+            --bg-card: #1e1e1e;
+            --bg-card-hover: #2a2a2a;
+            --bg-input: #2c2c2c;
+            --text-primary: #e0e0e0;
+            --text-secondary: #a0a0a0;
+            --accent-primary: #4f8cc9;
+            --accent-secondary: #2d5f8b;
+            --healthy: #4CAF50;
+            --unhealthy: #F44336;
+            --warning: #FFC107;
+            --border-radius: 12px;
+            --border-radius-sm: 8px;
+        }
+
+        * {
+            box-sizing: border-box;
+            transition: background-color 0.3s, color 0.3s, border-color 0.3s, box-shadow 0.3s;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-dark);
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--accent-secondary);
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-primary);
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Roboto', Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: var(--bg-card);
+            padding: 30px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        h1, h2 {
+            color: var(--text-primary);
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+
+        h2 {
+            margin-top: 30px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .back-link {
+            margin-bottom: 25px;
+            display: inline-block;
+            color: var(--accent-primary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s, transform 0.2s;
+            padding: 5px 0;
+        }
+
+        .back-link:hover {
+            color: var(--text-primary);
+            transform: translateX(-3px);
+        }
+
+        .image-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .image-title {
+            flex: 1;
+        }
+
+        .image-title h1 {
+            margin-bottom: 5px;
+            font-size: 1.8em;
+        }
+
+        .image-title div {
+            color: var(--text-secondary);
+            font-size: 1.1em;
+        }
+
+        .details-section {
+            margin-bottom: 40px;
+        }
+
+        .details-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 25px;
+        }
+
+        .detail-item {
+            margin-bottom: 15px;
+            transition: transform 0.2s;
+        }
+
+        .detail-item:hover {
+            transform: translateY(-3px);
+        }
+
+        .detail-label {
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: var(--accent-primary);
+            font-size: 0.95em;
+            letter-spacing: 0.5px;
+        }
+
+        .detail-value {
+            background-color: var(--bg-input);
+            padding: 12px;
+            border-radius: var(--border-radius-sm);
+            word-break: break-all;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        .error-message {
+            color: var(--unhealthy);
+            padding: 25px;
+            text-align: center;
+            background-color: rgba(244, 67, 54, 0.1);
+            border-radius: var(--border-radius);
+            margin: 30px 0;
+            border: 1px solid rgba(244, 67, 54, 0.2);
+        }
+
+        /* Copy button styles */
+        .detail-value {
+            position: relative;
+        }
+
+        /* Target browsers that support :has() */
+        .detail-value:has(.copy-button) {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        /* Fallback for browsers that don't support :has() */
+        .detail-value-with-copy {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .copy-button {
+            background: none;
+            border: none;
+            color: var(--accent-primary);
+            cursor: pointer;
+            padding: 5px;
+            border-radius: var(--border-radius-sm);
+            transition: all 0.2s;
+            opacity: 0.7;
+            margin-left: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .copy-button:hover {
+            opacity: 1;
+            background-color: rgba(79, 140, 201, 0.1);
+            transform: scale(1.1);
+        }
+
+        .copy-button:active {
+            transform: scale(0.95);
+        }
+
+        .copy-button.copied {
+            color: var(--healthy);
+            background-color: rgba(76, 175, 80, 0.1);
+        }
+
+        /* Container list styles */
+        .container-list {
+            margin-top: 30px;
+        }
+
+        .container-item {
+            display: flex;
+            align-items: center;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: var(--border-radius);
+            background-color: var(--bg-card);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .container-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            background-color: var(--bg-card-hover);
+        }
+
+        .container-info {
+            flex: 1;
+        }
+
+        .container-name {
+            font-size: 18px;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .container-name a {
+            color: var(--accent-primary) !important;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .container-name a:hover {
+            color: var(--text-primary) !important;
+            text-decoration: underline;
+        }
+
+        .container-image {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .container-runtime {
+            flex: 0 0 180px;
+            text-align: right;
+            padding-right: 20px;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .health-indicator {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            margin-left: 15px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+            transition: transform 0.2s;
+        }
+
+        .health-indicator:hover {
+            transform: scale(1.1);
+        }
+
+        .healthy {
+            background-color: var(--healthy);
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+        }
+
+        .unhealthy {
+            background-color: var(--unhealthy);
+            box-shadow: 0 0 10px rgba(244, 67, 54, 0.5);
+        }
+
+        .no-containers {
+            text-align: center;
+            padding: 30px;
+            color: var(--text-secondary);
+            background-color: rgba(255, 255, 255, 0.05);
+            border-radius: var(--border-radius);
+            margin-top: 20px;
+        }
+
+        .loading-indicator {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(79, 140, 201, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--accent-primary);
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        .tag-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .tag-item {
+            background-color: rgba(79, 140, 201, 0.1);
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: var(--accent-primary);
+        }
+
+        /* Build steps styles */
+        .build-steps {
+            margin-top: 20px;
+            background-color: var(--bg-card);
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .build-step {
+            padding: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            transition: background-color 0.2s;
+        }
+
+        .build-step:last-child {
+            border-bottom: none;
+        }
+
+        .build-step:hover {
+            background-color: var(--bg-card-hover);
+        }
+
+        .build-step-command {
+            margin-bottom: 10px;
+            overflow-x: auto;
+            background-color: var(--bg-input);
+            padding: 15px;
+            border-radius: var(--border-radius-sm);
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .build-step-info {
+            display: flex;
+            justify-content: space-between;
+            color: var(--text-secondary);
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+
+        .action-button {
+            background-color: var(--accent-secondary);
+            color: var(--text-primary);
+            border: none;
+            padding: 10px 15px;
+            border-radius: var(--border-radius-sm);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            transition: background-color 0.2s, transform 0.2s;
+            font-size: 0.95em;
+            margin-top: 10px;
+        }
+
+        .action-button:hover {
+            background-color: var(--accent-primary);
+            transform: translateY(-2px);
+        }
+
+        .action-button:active {
+            transform: translateY(0);
+        }
+
+        .button-icon {
+            margin-right: 8px;
+            display: flex;
+            align-items: center;
+        }
+
+        .no-build-steps {
+            text-align: center;
+            padding: 30px;
+            color: var(--text-secondary);
+            background-color: rgba(255, 255, 255, 0.05);
+            border-radius: var(--border-radius);
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/images" class="back-link">← Back to Images</a>
+
+        {% if image.error %}
+            <div class="error-message">{{ image.error }}</div>
+        {% else %}
+            <div class="image-header">
+                <div class="image-title">
+                    <h1>Image Details</h1>
+                    <div>
+                        {% if image.Tags %}
+                            <div class="tag-list">
+                                {% for tag in image.Tags %}
+                                    <span class="tag-item">{{ tag }}</span>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <span>&lt;none&gt;</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="details-section">
+                <h2>Image Information</h2>
+                <div class="details-grid">
+                    <div class="detail-item">
+                        <div class="detail-label">Image ID</div>
+                        <div class="detail-value detail-value-with-copy">
+                            {{ image.Id }}
+                            <button class="copy-button" data-clipboard-text="{{ image.Id }}" title="Copy Image ID">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Created</div>
+                        <div class="detail-value">{{ image.Created }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Size</div>
+                        <div class="detail-value" id="image-size">{{ image.Size }} bytes</div>
+                    </div>
+                    {% if image.Architecture %}
+                    <div class="detail-item">
+                        <div class="detail-label">Architecture</div>
+                        <div class="detail-value">{{ image.Architecture }}</div>
+                    </div>
+                    {% endif %}
+                    {% if image.Os %}
+                    <div class="detail-item">
+                        <div class="detail-label">Operating System</div>
+                        <div class="detail-value">{{ image.Os }}</div>
+                    </div>
+                    {% endif %}
+                    {% if image.Author %}
+                    <div class="detail-item">
+                        <div class="detail-label">Author</div>
+                        <div class="detail-value">{{ image.Author }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="details-section">
+                <h2>Build Steps</h2>
+                <button id="show-build-steps" class="action-button">
+                    <span class="button-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                    </span>
+                    <span class="button-text">Show Build Steps</span>
+                </button>
+                <div id="build-steps" class="build-steps" style="display: none;">
+                    <div class="loading-container" style="text-align: center; padding: 30px;">
+                        <div class="loading-indicator"></div>
+                        <span class="loading-text">Loading build steps...</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="details-section">
+                <h2>Containers Using This Image</h2>
+                <div id="container-list" class="container-list">
+                    <div class="loading-container" style="text-align: center; padding: 30px;">
+                        <div class="loading-indicator"></div>
+                        <span class="loading-text">Loading container information...</span>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Format the image size to be human-readable
+            const sizeElement = document.getElementById('image-size');
+            if (sizeElement) {
+                const sizeBytes = parseInt(sizeElement.textContent);
+                sizeElement.textContent = formatFileSize(sizeBytes);
+            }
+
+            // Format the creation date to be human-readable
+            const createdElements = document.querySelectorAll('.detail-value');
+            createdElements.forEach(element => {
+                if (element.textContent.includes('T') && element.textContent.includes('Z') && !element.textContent.includes('bytes')) {
+                    const date = new Date(element.textContent);
+                    element.textContent = date.toLocaleString();
+                }
+            });
+
+            // Set up copy buttons
+            document.querySelectorAll('.copy-button').forEach(button => {
+                button.addEventListener('click', function() {
+                    const text = this.getAttribute('data-clipboard-text');
+                    navigator.clipboard.writeText(text).then(() => {
+                        this.classList.add('copied');
+                        setTimeout(() => {
+                            this.classList.remove('copied');
+                        }, 2000);
+                    });
+                });
+            });
+
+            // Set up the show build steps button
+            const showBuildStepsButton = document.getElementById('show-build-steps');
+            const buildStepsContainer = document.getElementById('build-steps');
+
+            if (showBuildStepsButton) {
+                showBuildStepsButton.addEventListener('click', function() {
+                    // Toggle the visibility of the build steps container
+                    if (buildStepsContainer.style.display === 'none') {
+                        buildStepsContainer.style.display = 'block';
+                        this.querySelector('.button-text').textContent = 'Hide Build Steps';
+                        this.querySelector('svg').innerHTML = '<polyline points="18 15 12 9 6 15"></polyline>';
+
+                        // Fetch build steps only the first time
+                        if (buildStepsContainer.querySelector('.loading-container')) {
+                            fetchBuildSteps();
+                        }
+                    } else {
+                        buildStepsContainer.style.display = 'none';
+                        this.querySelector('.button-text').textContent = 'Show Build Steps';
+                        this.querySelector('svg').innerHTML = '<polyline points="6 9 12 15 18 9"></polyline>';
+                    }
+                });
+            }
+
+            // Fetch containers using this image
+            fetchContainersForImage();
+        });
+
+        // Format file size to human-readable format
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Calculate how long the container has been running
+        function getRunningTime(createdTime) {
+            // Parse ISO 8601 timestamp string
+            const created = new Date(createdTime);
+            const now = new Date();
+            const diffMs = now - created;
+
+            const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+            if (days > 0) {
+                return `${days}d ${hours}h ${minutes}m`;
+            } else if (hours > 0) {
+                return `${hours}h ${minutes}m`;
+            } else if (minutes === 0) {
+                return "less than a minute"
+            } else {
+                return `${minutes}m`;
+            }
+        }
+
+        // Determine if container is healthy based on status
+        function isHealthy(status) {
+            return status.toLowerCase().includes('running')
+        }
+
+        // Fetch build steps for this image
+        function fetchBuildSteps() {
+            const imageId = "{{ image.Id }}";
+            const buildStepsContainer = document.getElementById('build-steps');
+
+            fetch(`/api/image/${imageId}/history`)
+                .then(response => response.json())
+                .then(data => {
+                    if (!data || data.length === 0 || (data.length === 1 && data[0].error)) {
+                        buildStepsContainer.innerHTML = `<div class="no-build-steps">No build steps information available for this image.</div>`;
+                        return;
+                    }
+
+                    console.log("Image history data:", data);
+                    console.log("Number of layers:", data.length);
+
+                    // Render build steps
+                    let html = '';
+
+                    // Process all layers in the image history
+                    // The history is returned in reverse order (newest first), so we need to reverse it to show oldest first
+                    const reversedData = [...data].reverse().map(step => ({
+                        ...step,
+                        CreatedBy: step.CreatedBy ? step.CreatedBy.replace(/\t/g, ' ').trim() : ''
+                    }));
+                    console.log("Reversed data (oldest first):", reversedData);
+
+                    reversedData.forEach((step, index) => {
+                        console.log(`Processing layer ${index}:`, step);
+
+                        // Skip empty steps
+                        if (!step.CreatedBy || step.CreatedBy === '') {
+                            console.log(`Skipping layer ${index} due to empty CreatedBy`);
+                            return;
+                        }
+
+                        // Clean up the command (remove /bin/sh -c if present)
+                        let command = step.CreatedBy;
+                        if (command.startsWith('/bin/sh -c ')) {
+                            command = command.substring('/bin/sh -c '.length);
+                        }
+                        if (command.startsWith('#(nop) ')) {
+                            command = command.substring('#(nop) '.length);
+                        }
+
+                        // Format the date
+                        const date = new Date(step.Created * 1000); // Convert Unix timestamp to milliseconds
+                        const formattedDate = date.toLocaleString();
+
+                        // Format the size
+                        const formattedSize = formatFileSize(step.Size);
+
+                        html += `
+                            <div class="build-step">
+                                <div class="build-step-command">
+                                    <pre><code class="language-bash">${command}</code></pre>
+                                </div>
+                                <div class="build-step-info">
+                                    <span>Created: ${formattedDate}</span>
+                                    <span>Size: ${formattedSize}</span>
+                                    <span>Layer ${index + 1} of ${reversedData.length}</span>
+                                </div>
+                            </div>
+                        `;
+                    });
+
+                    buildStepsContainer.innerHTML = html;
+
+                    // Initialize syntax highlighting
+                    document.querySelectorAll('pre code').forEach((block) => {
+                        hljs.highlightElement(block);
+                    });
+                })
+                .catch(error => {
+                    buildStepsContainer.innerHTML = 
+                        `<div class="error-message">Error fetching build steps: ${error.message}</div>`;
+                });
+        }
+
+        // Fetch containers using this image
+        function fetchContainersForImage() {
+            const imageId = "{{ image.Id }}";
+
+            fetch(`/api/image/${imageId}/containers`)
+                .then(response => response.json())
+                .then(data => {
+                    const containerList = document.getElementById('container-list');
+
+                    if (!data || data.length === 0 || (data.length === 1 && data[0].error)) {
+                        containerList.innerHTML = `<div class="no-containers">No containers are using this image.</div>`;
+                        return;
+                    }
+
+                    // Render containers
+                    let html = '';
+                    data.forEach(container => {
+                        const name = container.Names[0].replace(/^\//, '') || 'Unnamed';
+                        const runningTime = getRunningTime(container.Created);
+                        const healthy = isHealthy(container.Status);
+
+                        html += `
+                            <div class="container-item">
+                                <div class="container-info">
+                                    <div class="container-name">
+                                        <a href="/container/${container.Id}">${name}</a>
+                                    </div>
+                                    <div class="container-image">${container.Status}</div>
+                                </div>
+                                <div class="container-runtime">
+                                    Running for: ${runningTime}
+                                </div>
+                                <div class="health-indicator ${healthy ? 'healthy' : 'unhealthy'}" 
+                                     title="${container.Status}">
+                                </div>
+                            </div>
+                        `;
+                    });
+
+                    containerList.innerHTML = html;
+                })
+                .catch(error => {
+                    document.getElementById('container-list').innerHTML = 
+                        `<div class="error-message">Error fetching container information: ${error.message}</div>`;
+                });
+        }
+    </script>
+</body>
+</html>
