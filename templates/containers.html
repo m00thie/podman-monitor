@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Containers - Podman Monitor</title>
+    <style>
+        :root {
+            --bg-dark: #121212;
+            --bg-card: #1e1e1e;
+            --bg-card-hover: #2a2a2a;
+            --text-primary: #e0e0e0;
+            --text-secondary: #a0a0a0;
+            --accent-primary: #4f8cc9;
+            --accent-secondary: #2d5f8b;
+            --healthy: #4CAF50;
+            --unhealthy: #F44336;
+            --border-radius: 12px;
+            --dropdown-bg: #2a2a2a;
+            --dropdown-hover: #3a3a3a;
+        }
+
+        * {
+            box-sizing: border-box;
+            transition: background-color 0.3s, color 0.3s, border-color 0.3s, box-shadow 0.3s;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-dark);
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--accent-secondary);
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-primary);
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Roboto', Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: var(--bg-card);
+            padding: 30px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        h1, h2 {
+            color: var(--text-primary);
+            text-align: center;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+
+        h1 {
+            margin-top: 10px;
+            font-size: 2.2em;
+            background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+            text-align: center;
+        }
+
+        .back-link {
+            margin-bottom: 25px;
+            display: inline-block;
+            color: var(--accent-primary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s, transform 0.2s;
+            padding: 5px 0;
+        }
+
+        .back-link:hover {
+            color: var(--text-primary);
+            transform: translateX(-3px);
+        }
+
+        .greeting {
+            text-align: center;
+            font-size: 1.1em;
+            margin-bottom: 40px;
+            color: var(--text-secondary);
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .container-list {
+            margin-top: 30px;
+        }
+
+        .container-item {
+            display: flex;
+            align-items: center;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: var(--border-radius);
+            background-color: var(--bg-card);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .container-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            background-color: var(--bg-card-hover);
+        }
+
+        .container-info {
+            flex: 1;
+        }
+
+        .container-name {
+            font-size: 18px;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .container-name a {
+            color: var(--accent-primary) !important;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .container-name a:hover {
+            color: var(--text-primary) !important;
+            text-decoration: underline;
+        }
+
+        .container-image {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .container-runtime {
+            flex: 0 0 180px;
+            text-align: right;
+            padding-right: 20px;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .health-indicator {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            margin-left: 15px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+            transition: transform 0.2s;
+        }
+
+        .health-indicator:hover {
+            transform: scale(1.1);
+        }
+
+        .healthy {
+            background-color: var(--healthy);
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+        }
+
+        .unhealthy {
+            background-color: var(--unhealthy);
+            box-shadow: 0 0 10px rgba(244, 67, 54, 0.5);
+        }
+
+        .no-containers {
+            text-align: center;
+            padding: 30px;
+            color: var(--text-secondary);
+            background-color: rgba(255, 255, 255, 0.05);
+            border-radius: var(--border-radius);
+            margin-top: 20px;
+        }
+
+        .error-message {
+            color: var(--unhealthy);
+            text-align: center;
+            padding: 30px;
+            background-color: rgba(244, 67, 54, 0.1);
+            border-radius: var(--border-radius);
+            margin-top: 20px;
+        }
+
+        /* Filter controls styles */
+        .filter-controls {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .filter-group {
+            display: flex;
+            align-items: center;
+            margin-right: 20px;
+        }
+
+        .filter-label {
+            margin-right: 10px;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .filter-select {
+            background-color: var(--dropdown-bg);
+            color: var(--text-primary);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 14px;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .filter-select:hover {
+            background-color: var(--dropdown-hover);
+        }
+
+        .filter-select option {
+            background-color: var(--dropdown-bg);
+            color: var(--text-primary);
+        }
+
+        .spacer {
+            flex-grow: 1;
+        }
+
+        .actions-menu {
+            position: relative;
+            display: inline-block;
+        }
+
+        .actions-button {
+            background-color: var(--dropdown-bg);
+            color: var(--text-primary);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 14px;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .actions-button:hover {
+            background-color: var(--dropdown-hover);
+        }
+
+        .actions-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            background-color: var(--dropdown-bg);
+            min-width: 160px;
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.5);
+            z-index: 1;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .actions-content.show {
+            display: block;
+        }
+
+        .actions-content a {
+            color: var(--text-primary);
+            padding: 12px 16px;
+            text-decoration: none;
+            display: block;
+            font-size: 14px;
+        }
+
+        .actions-content a:hover {
+            background-color: var(--dropdown-hover);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back-link">← Back to Home</a>
+        <h1>Podman Monitor</h1>
+        <div class="greeting">
+            <p>View and manage your Podman containers.</p>
+        </div>
+
+        <div id="container-info">
+            <h2>All Containers</h2>
+            <div class="filter-controls">
+                <div class="filter-group">
+                    <span class="filter-label">Filter:</span>
+                    <select id="container-filter" class="filter-select">
+                        <option value="all" selected>All</option>
+                        <option value="healthy">Healthy</option>
+                        <option value="unhealthy">Unhealthy</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <span class="filter-label">Sort:</span>
+                    <select id="container-sort" class="filter-select">
+                        <option value="healthy-first" selected>Healthy first</option>
+                        <option value="unhealthy-first">Unhealthy first</option>
+                    </select>
+                </div>
+                <div class="spacer"></div>
+                <div class="actions-menu">
+                    <button id="actions-button" class="actions-button">⋮</button>
+                    <div id="actions-content" class="actions-content">
+                        <a href="#" id="prune-containers">Prune containers</a>
+                    </div>
+                </div>
+            </div>
+            <div id="container-list" class="container-list">
+                <p>Loading container information...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables to store filter and sort preferences
+        let currentFilter = 'all';
+        let currentSort = 'healthy-first';
+        let allContainersData = [];
+
+        // Fetch container information when the page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            fetchContainerInfo();
+
+            // Refresh every 30 seconds
+            setInterval(fetchContainerInfo, 30000);
+
+            // Add event listeners for filter and sort
+            document.getElementById('container-filter').addEventListener('change', function() {
+                currentFilter = this.value;
+                fetchContainerInfo();
+            });
+
+            document.getElementById('container-sort').addEventListener('change', function() {
+                currentSort = this.value;
+                fetchContainerInfo();
+            });
+
+            // Toggle actions menu
+            document.getElementById('actions-button').addEventListener('click', function(e) {
+                e.stopPropagation();
+                document.getElementById('actions-content').classList.toggle('show');
+            });
+
+            // Close actions menu when clicking elsewhere
+            document.addEventListener('click', function() {
+                document.getElementById('actions-content').classList.remove('show');
+            });
+
+            // Prune containers action
+            document.getElementById('prune-containers').addEventListener('click', function(e) {
+                e.preventDefault();
+                if (confirm('Are you sure you want to prune all stopped containers?')) {
+                    pruneContainers();
+                }
+            });
+        });
+
+        // Calculate how long the container has been running
+        function getRunningTime(createdTime) {
+            // Parse ISO 8601 timestamp string
+            const created = new Date(createdTime);
+            const now = new Date();
+            const diffMs = now - created;
+
+            const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+            if (days > 0) {
+                return `${days}d ${hours}h ${minutes}m`;
+            } else if (hours > 0) {
+                return `${hours}h ${minutes}m`;
+            } else if (minutes === 0) {
+                return "less than a minute"
+            } else {
+                return `${minutes}m`;
+            }
+        }
+
+        // Parse image name and tag
+        function parseImageInfo(imageString) {
+            const parts = imageString.split(':');
+            const name = parts[0];
+            const tag = parts.length > 1 ? parts[1] : 'latest';
+            return { name, tag };
+        }
+
+        // Determine if container is healthy based on status
+        function isHealthy(status) {
+            return status.toLowerCase().includes('running')
+        }
+
+
+        // Prune all stopped containers
+        function pruneContainers() {
+            fetch('/api/containers/prune', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert(`Error: ${data.error}`);
+                    } else {
+                        alert(`Successfully pruned ${data.prunedCount} containers.`);
+                        fetchContainerInfo(); // Refresh the container list
+                    }
+                })
+                .catch(error => {
+                    alert(`Error pruning containers: ${error.message}`);
+                });
+        }
+
+        function fetchContainerInfo() {
+            // Use the current filter and sort settings
+            const url = `/api/containers?filter=${currentFilter}&sort=${currentSort}`;
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        document.getElementById('container-list').innerHTML = 
+                            `<div class="error-message">Error: ${data.error}</div>`;
+                        return;
+                    }
+
+                    // Store all containers in the global variable
+                    allContainersData = Array.isArray(data) ? data : [];
+
+                    // Render containers (no need to filter or sort as the API already did that)
+                    const containerList = document.getElementById('container-list');
+
+                    if (allContainersData.length === 0) {
+                        containerList.innerHTML = `<div class="no-containers">No ${currentFilter !== 'all' ? currentFilter + ' ' : ''}containers found.</div>`;
+                        return;
+                    }
+
+                    // Render containers
+                    let html = '';
+                    allContainersData.forEach(container => {
+                        const name = container.Names[0].replace(/^\//, '') || 'Unnamed';
+                        const imageInfo = parseImageInfo(container.Image);
+                        const runningTime = getRunningTime(container.Created);
+                        const healthy = isHealthy(container.Status);
+
+                        html += `
+                            <div class="container-item">
+                                <div class="container-info">
+                                    <div class="container-name">
+                                        <a href="/container/${container.Id}">${name}</a>
+                                    </div>
+                                    <div class="container-image">${imageInfo.name}:${imageInfo.tag}</div>
+                                </div>
+                                <div class="container-runtime">
+                                    Running for: ${runningTime}
+                                </div>
+                                <div class="health-indicator ${healthy ? 'healthy' : 'unhealthy'}" 
+                                     title="${container.Status}">
+                                </div>
+                            </div>
+                        `;
+                    });
+
+                    containerList.innerHTML = html;
+                })
+                .catch(error => {
+                    document.getElementById('container-list').innerHTML = 
+                        `<div class="error-message">Error fetching container information: ${error.message}</div>`;
+                });
+        }
+    </script>
+</body>
+</html>
